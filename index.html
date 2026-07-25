@@ -270,6 +270,43 @@
 /* ==========================================================
    ตั้งค่าก่อนใช้งานจริง
    ========================================================== */
+/* ==========================================================
+   DEBUG: จับ error ทุกชนิดที่เกิดขึ้นในหน้านี้ แล้วโชว์เป็นข้อความแดง
+   บนสุดของหน้าจอ (ลบส่วนนี้ออกได้หลังแก้ปัญหาเสร็จแล้ว)
+   ========================================================== */
+(function () {
+  const banner = document.createElement('div');
+  banner.id = 'debugBanner';
+  banner.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:9999; ' +
+    'background:#7f1d1d; color:#fecaca; font-size:12px; padding:10px 14px; ' +
+    'display:none; white-space:pre-wrap; word-break:break-all; max-height:40vh; overflow:auto;';
+  document.body.prepend(banner);
+
+  function showDebug(msg) {
+    banner.style.display = 'block';
+    banner.textContent += (banner.textContent ? '\n---\n' : '') + msg;
+  }
+
+  window.onerror = function (message, source, lineno, colno) {
+    showDebug('JS Error: ' + message + ' (บรรทัด ' + lineno + ')');
+  };
+  window.addEventListener('unhandledrejection', function (e) {
+    showDebug('Unhandled Promise: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+  });
+
+  window.addEventListener('DOMContentLoaded', function () {
+    const btn = document.getElementById('btnSubmit');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        showDebug('ตรวจพบการคลิกปุ่มยืนยัน (' + new Date().toLocaleTimeString() + ')');
+      });
+    } else {
+      showDebug('ไม่พบปุ่ม btnSubmit ใน DOM เลย!');
+    }
+  });
+})();
+/* ========================================================== */
+
 const LIFF_ID = '2010842579-zhjBChGT';
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyawgYZL1qczOOaO_AHILh0oeipt5uOPyZu8lFupbM0jOjd8LAi5Ep8vLOHALUUHvF-/exec';
 
