@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>ลงทะเบียน MER/Staff</title>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#05070d; --bg-mid:#0b1224; --bg-navy:#101b36;
+    --surface:#141f3d; --surface-soft:rgba(255,255,255,.04);
+    --border:rgba(255,255,255,.09);
+    --accent:#2f6bff; --accent-cyan:#22d3ee;
+    --text:#eef1fa; --text-dim:#8a94b3; --text-faint:#5b6482;
+    --success:#34d399; --danger:#f87171;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:'Noto Sans Thai','Space Grotesk',sans-serif;
+    background:
+      radial-gradient(circle at 15% 0%, rgba(47,107,255,.16), transparent 45%),
+      radial-gradient(circle at 100% 30%, rgba(34,211,238,.10), transparent 40%),
+      linear-gradient(160deg, var(--bg-deep) 0%, var(--bg-mid) 45%, var(--bg-navy) 100%);
+    background-attachment:fixed;
+    color:var(--text);
+    min-height:100vh;
+    display:flex; justify-content:center;
+    padding:24px 16px 60px;
+  }
+  .app{width:100%; max-width:440px;}
+  .brand{
+    display:flex; align-items:center; gap:10px; margin-bottom:28px;
+  }
+  .brand-dot{
+    width:10px; height:10px; border-radius:50%;
+    background:linear-gradient(135deg, var(--accent), var(--accent-cyan));
+    box-shadow:0 0 12px rgba(47,107,255,.7);
+  }
+  .brand-text{font-family:'Space Grotesk'; font-weight:600; letter-spacing:.04em; font-size:14px; color:var(--text-dim); text-transform:uppercase;}
+
+  /* Step indicator */
+  .steps{display:flex; align-items:center; gap:8px; margin-bottom:24px;}
+  .step-dot{
+    flex:1; height:4px; border-radius:2px; background:var(--surface-soft);
+    position:relative; overflow:hidden;
+  }
+  .step-dot.done, .step-dot.active{background:linear-gradient(90deg, var(--accent), var(--accent-cyan));}
+  .step-label{font-size:12px; color:var(--text-faint); margin-bottom:10px; letter-spacing:.02em;}
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:18px;
+    padding:24px 20px;
+    box-shadow:0 20px 40px -20px rgba(0,0,0,.6);
+  }
+  h1{font-size:20px; font-weight:700; margin-bottom:6px;}
+  .sub{font-size:13.5px; color:var(--text-dim); margin-bottom:22px; line-height:1.6;}
+
+  .field{margin-bottom:16px;}
+  .field label{display:block; font-size:13px; color:var(--text-dim); margin-bottom:7px; font-weight:500;}
+  .field input, .field select{
+    width:100%; padding:13px 14px;
+    background:rgba(255,255,255,.03);
+    border:1px solid var(--border);
+    border-radius:11px;
+    color:var(--text);
+    font-family:inherit; font-size:15px;
+    outline:none;
+    appearance:none;
+    transition:border-color .15s, background .15s;
+  }
+  .field select{
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238a94b3' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 14px center;
+    padding-right:36px;
+  }
+  .field input:focus, .field select:focus{border-color:var(--accent); background:rgba(47,107,255,.06);}
+  .field input:disabled, .field select:disabled{opacity:.45;}
+  .field input::placeholder{color:var(--text-faint);}
+
+  .preview-chip{
+    display:flex; align-items:center; gap:10px;
+    background:rgba(34,211,238,.06);
+    border:1px solid rgba(34,211,238,.18);
+    border-radius:11px; padding:12px 14px; margin-top:14px;
+    font-size:13.5px; color:var(--text-dim);
+  }
+  .preview-chip b{color:var(--text); font-weight:600;}
+
+  .btn{
+    width:100%; padding:15px; border:none; border-radius:12px;
+    font-family:inherit; font-size:15px; font-weight:700;
+    cursor:pointer; transition:opacity .15s, transform .1s;
+    margin-top:6px;
+  }
+  .btn:active{transform:scale(.985);}
+  .btn-primary{
+    background:linear-gradient(135deg, var(--accent), var(--accent-cyan));
+    color:#04070f;
+  }
+  .btn-primary:disabled{opacity:.35; cursor:not-allowed;}
+  .btn-ghost{
+    background:transparent; border:1px solid var(--border); color:var(--text);
+  }
+  .btn-danger-outline{
+    background:transparent; border:1px solid rgba(248,113,113,.3); color:var(--danger);
+  }
+
+  .msg{font-size:13px; padding:11px 13px; border-radius:10px; margin-bottom:16px; line-height:1.5;}
+  .msg-error{background:rgba(248,113,113,.08); border:1px solid rgba(248,113,113,.25); color:#fca5a5;}
+  .msg-success{background:rgba(52,211,153,.08); border:1px solid rgba(52,211,153,.25); color:#6ee7b7;}
+
+  /* Store list */
+  .store-item{
+    display:flex; align-items:center; gap:12px;
+    background:rgba(255,255,255,.03);
+    border:1px solid var(--border);
+    border-radius:12px; padding:13px 14px; margin-bottom:10px;
+  }
+  .store-icon{
+    width:36px; height:36px; border-radius:9px; flex-shrink:0;
+    background:linear-gradient(135deg, rgba(47,107,255,.25), rgba(34,211,238,.2));
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Space Grotesk'; font-weight:700; font-size:13px; color:var(--accent-cyan);
+  }
+  .store-info{flex:1; min-width:0;}
+  .store-name{font-size:14px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .store-meta{font-size:12px; color:var(--text-faint); margin-top:2px;}
+  .badge-ok{
+    font-size:11px; font-weight:700; color:#04070f;
+    background:var(--success); padding:3px 8px; border-radius:20px; flex-shrink:0;
+  }
+
+  .quota-bar{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:12.5px; color:var(--text-faint); margin-bottom:14px;
+  }
+  .quota-track{
+    flex:1; height:5px; background:var(--surface-soft); border-radius:3px; margin:0 10px; overflow:hidden;
+  }
+  .quota-fill{height:100%; background:linear-gradient(90deg, var(--accent), var(--accent-cyan)); border-radius:3px;}
+
+  .center-state{text-align:center; padding:60px 10px;}
+  .spinner{
+    width:34px; height:34px; margin:0 auto 18px;
+    border:3px solid var(--surface-soft); border-top-color:var(--accent-cyan);
+    border-radius:50%; animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .center-state p{color:var(--text-dim); font-size:13.5px;}
+
+  .success-icon{
+    width:56px; height:56px; margin:0 auto 16px; border-radius:50%;
+    background:linear-gradient(135deg, rgba(52,211,153,.2), rgba(52,211,153,.05));
+    border:1px solid rgba(52,211,153,.3);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="brand">
+    <div class="brand-dot"></div>
+    <div class="brand-text">MER · Staff Register</div>
+  </div>
+
+  <div id="stepIndicator" class="hidden">
+    <div class="step-label" id="stepLabel">ขั้นตอนที่ 1 จาก 2</div>
+    <div class="steps">
+      <div class="step-dot" id="dot1"></div>
+      <div class="step-dot" id="dot2"></div>
+    </div>
+  </div>
+
+  <div class="card">
+
+    <!-- LOADING -->
+    <div id="viewLoading" class="center-state">
+      <div class="spinner"></div>
+      <p id="loadingText">กำลังเชื่อมต่อ LINE...</p>
+    </div>
+
+    <!-- FORM: ข้อมูลผู้ใช้ (เฉพาะลงทะเบียนครั้งแรก) -->
+    <div id="viewProfile" class="hidden">
+      <h1>ลงทะเบียนใช้งาน</h1>
+      <p class="sub">กรอกข้อมูลของคุณ ใช้ครั้งเดียว ระบบจะจำไว้สำหรับการเพิ่มสาขาในครั้งถัดไป</p>
+      <div id="profileMsg"></div>
+      <div class="field">
+        <label>ชื่อ-สกุล</label>
+        <input type="text" id="inputName" placeholder="เช่น สมชาย ใจดี">
+      </div>
+      <div class="field">
+        <label>เบอร์โทรศัพท์</label>
+        <input type="tel" id="inputPhone" placeholder="0812345678" maxlength="10">
+      </div>
+      <div class="field">
+        <label>ประเภทพนักงาน (Staff Type)</label>
+        <select id="inputStaffType"><option value="">— เลือก —</option></select>
+      </div>
+      <button class="btn btn-primary" id="btnToStore">ถัดไป: เลือกสาขา</button>
+    </div>
+
+    <!-- FORM: เลือกสาขา -->
+    <div id="viewStore" class="hidden">
+      <h1 id="storeTitle">เลือกสาขา</h1>
+      <p class="sub" id="storeSub">เลือก Channel → ลูกค้า → สาขา ตามลำดับ</p>
+      <div id="storeMsg"></div>
+
+      <div id="quotaWrap" class="hidden">
+        <div class="quota-bar">
+          <span id="quotaText">0/0 สาขา</span>
+          <div class="quota-track"><div class="quota-fill" id="quotaFillBar" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Channel</label>
+        <select id="selChannel"><option value="">— เลือก Channel —</option></select>
+      </div>
+      <div class="field">
+        <label>ลูกค้า (Customer)</label>
+        <select id="selCustomer" disabled><option value="">— เลือก Channel ก่อน —</option></select>
+      </div>
+      <div class="field">
+        <label>สาขา (Store)</label>
+        <select id="selStore" disabled><option value="">— เลือกลูกค้าก่อน —</option></select>
+      </div>
+
+      <div class="preview-chip hidden" id="storePreview"></div>
+
+      <button class="btn btn-primary" id="btnSubmit" disabled style="margin-top:20px;">ยืนยันลงทะเบียนสาขานี้</button>
+      <button class="btn btn-ghost hidden" id="btnBackToList" style="margin-top:10px;">ดูสาขาที่ลงทะเบียนแล้ว</button>
+    </div>
+
+    <!-- SUMMARY -->
+    <div id="viewSummary" class="hidden">
+      <div class="success-icon">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+      </div>
+      <h1 style="text-align:center;" id="summaryTitle">ลงทะเบียนสำเร็จ</h1>
+      <p class="sub" style="text-align:center;" id="summarySub"></p>
+
+      <div id="quotaWrapSummary">
+        <div class="quota-bar">
+          <span id="quotaTextSummary">0/0 สาขา</span>
+          <div class="quota-track"><div class="quota-fill" id="quotaFillBarSummary" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <div id="storeList"></div>
+
+      <button class="btn btn-primary" id="btnAddMore">+ เพิ่มสาขา</button>
+    </div>
+
+    <!-- ERROR -->
+    <div id="viewError" class="center-state hidden">
+      <p style="color:var(--danger); font-size:14px;" id="errorText">เกิดข้อผิดพลาด</p>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ==========================================================
+   ตั้งค่าก่อนใช้งานจริง
+   ========================================================== */
+const LIFF_ID = '2010842579-zhjBChGT';
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyawgYZL1qczOOaO_AHILh0oeipt5uOPyZu8lFupbM0jOjd8LAi5Ep8vLOHALUUHvF-/exec';
+
+/* ========================================================== */
+
+let profile = null;
+let regStatus = null;
+let staffOptions = [];
+let storeData = [];
+let selectedStoreInfo = null;
+
+const $ = (id) => document.getElementById(id);
+
+function callApi(action, data) {
+  return fetch(WEB_APP_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // กัน CORS preflight ของ Apps Script
+    body: JSON.stringify({ action, ...data })
+  }).then(r => r.json());
+}
+
+function showView(id) {
+  ['viewLoading','viewProfile','viewStore','viewSummary','viewError'].forEach(v => {
+    $(v).classList.toggle('hidden', v !== id);
+  });
+}
+
+function setStepIndicator(step, label) {
+  $('stepIndicator').classList.remove('hidden');
+  $('stepLabel').textContent = label;
+  $('dot1').classList.toggle('active', step === 1);
+  $('dot1').classList.toggle('done', step > 1);
+  $('dot2').classList.toggle('active', step === 2);
+  $('dot2').classList.toggle('done', step > 2);
+}
+
+async function init() {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+
+    $('loadingText').textContent = 'กำลังโหลดข้อมูล...';
+    profile = await liff.getProfile();
+
+    const [status, staff, stores] = await Promise.all([
+      callApi('getRegisterStatus', { lineId: profile.userId }),
+      callApi('getStaffTypeOptions', {}),
+      callApi('getStoreMasterData', {})
+    ]);
+
+    regStatus = status;
+    staffOptions = staff;
+    storeData = stores;
+
+    if (regStatus.isNew) {
+      renderProfileForm();
+    } else {
+      renderStoreStep();
+    }
+  } catch (err) {
+    showFatalError('เชื่อมต่อไม่สำเร็จ: ' + err.message);
+  }
+}
+
+function showFatalError(msg) {
+  showView('viewError');
+  $('errorText').textContent = msg;
+}
+
+/* ---------------- STEP 1: PROFILE (เฉพาะสมาชิกใหม่) ---------------- */
+function renderProfileForm() {
+  const sel = $('inputStaffType');
+  sel.innerHTML = '<option value="">— เลือก —</option>' +
+    staffOptions.map(o => `<option value="${o.staffType}">${o.staffType}${o.maxStore ? ` (สูงสุด ${o.maxStore} สาขา)` : ' (ไม่จำกัดสาขา)'}</option>`).join('');
+
+  $('inputName').value = profile.displayName || '';
+  setStepIndicator(1, 'ขั้นตอนที่ 1 จาก 2 — ข้อมูลผู้ใช้');
+  showView('viewProfile');
+}
+
+$('btnToStore').addEventListener('click', () => {
+  const name = $('inputName').value.trim();
+  const phone = $('inputPhone').value.trim();
+  const staffType = $('inputStaffType').value;
+  $('profileMsg').innerHTML = '';
+
+  if (!name || !phone || !staffType) {
+    $('profileMsg').innerHTML = '<div class="msg msg-error">กรุณากรอกข้อมูลให้ครบทุกช่อง</div>';
+    return;
+  }
+  if (!/^0\d{9}$/.test(phone)) {
+    $('profileMsg').innerHTML = '<div class="msg msg-error">เบอร์โทรศัพท์ไม่ถูกต้อง (ต้องขึ้นต้นด้วย 0 และมี 10 หลัก)</div>';
+    return;
+  }
+
+  regStatus._draftName = name;
+  regStatus._draftPhone = phone;
+  regStatus._draftStaffType = staffType;
+  renderStoreStep();
+});
+
+/* ---------------- STEP 2: เลือกสาขา ---------------- */
+function currentStaffType() {
+  return regStatus.isNew ? regStatus._draftStaffType : regStatus.staffType;
+}
+function currentMaxStore() {
+  if (regStatus.isNew) {
+    const opt = staffOptions.find(o => o.staffType === regStatus._draftStaffType);
+    return opt ? opt.maxStore : null;
+  }
+  return regStatus.maxStore;
+}
+function currentStoreCount() {
+  return regStatus.registeredStores ? regStatus.registeredStores.length : 0;
+}
+
+function renderStoreStep() {
+  setStepIndicator(2, 'ขั้นตอนที่ 2 จาก 2 — เลือกสาขา');
+  $('storeMsg').innerHTML = '';
+  $('storePreview').classList.add('hidden');
+  selectedStoreInfo = null;
+  $('btnSubmit').disabled = true;
+
+  const max = currentMaxStore();
+  const count = currentStoreCount();
+
+  if (max !== null) {
+    $('quotaWrap').classList.remove('hidden');
+    $('quotaText').textContent = `${count}/${max} สาขา (${currentStaffType()})`;
+    $('quotaFillBar').style.width = Math.min(100, (count / max) * 100) + '%';
+  } else {
+    $('quotaWrap').classList.add('hidden');
+  }
+
+  // จำกัดโควตาเต็มแล้ว
+  if (max !== null && count >= max) {
+    $('storeMsg').innerHTML = `<div class="msg msg-error">Staff Type "${currentStaffType()}" ลงทะเบียนได้สูงสุด ${max} สาขา คุณลงทะเบียนครบแล้ว</div>`;
+    $('selChannel').disabled = true;
+    $('selCustomer').disabled = true;
+    $('selStore').disabled = true;
+    $('btnBackToList').classList.remove('hidden');
+    showView('viewStore');
+    return;
+  }
+
+  $('btnBackToList').classList.toggle('hidden', count === 0);
+
+  // เติม Channel dropdown
+  const channels = [...new Set(storeData.map(s => s.channel))];
+  $('selChannel').disabled = false;
+  $('selChannel').innerHTML = '<option value="">— เลือก Channel —</option>' +
+    channels.map(c => `<option value="${c}">${c}</option>`).join('');
+  $('selCustomer').innerHTML = '<option value="">— เลือก Channel ก่อน —</option>';
+  $('selCustomer').disabled = true;
+  $('selStore').innerHTML = '<option value="">— เลือกลูกค้าก่อน —</option>';
+  $('selStore').disabled = true;
+
+  showView('viewStore');
+}
+
+$('selChannel').addEventListener('change', () => {
+  const ch = $('selChannel').value;
+  $('storePreview').classList.add('hidden');
+  $('btnSubmit').disabled = true;
+  if (!ch) { $('selCustomer').disabled = true; return; }
+
+  const customers = [...new Set(storeData.filter(s => s.channel === ch).map(s => s.customer))];
+  $('selCustomer').disabled = false;
+  $('selCustomer').innerHTML = '<option value="">— เลือกลูกค้า —</option>' +
+    customers.map(c => `<option value="${c}">${c}</option>`).join('');
+  $('selStore').innerHTML = '<option value="">— เลือกลูกค้าก่อน —</option>';
+  $('selStore').disabled = true;
+});
+
+$('selCustomer').addEventListener('change', () => {
+  const ch = $('selChannel').value;
+  const cust = $('selCustomer').value;
+  $('storePreview').classList.add('hidden');
+  $('btnSubmit').disabled = true;
+  if (!cust) { $('selStore').disabled = true; return; }
+
+  const stores = storeData.filter(s => s.channel === ch && s.customer === cust);
+  $('selStore').disabled = false;
+  $('selStore').innerHTML = '<option value="">— เลือกสาขา —</option>' +
+    stores.map(s => `<option value="${s.storeId}">${s.storenameTh} (${s.storeId})</option>`).join('');
+});
+
+$('selStore').addEventListener('change', () => {
+  const storeId = $('selStore').value;
+  if (!storeId) { $('storePreview').classList.add('hidden'); $('btnSubmit').disabled = true; return; }
+
+  selectedStoreInfo = storeData.find(s => s.storeId === storeId);
+  $('storePreview').innerHTML =
+    `📍 <span><b>${selectedStoreInfo.storenameTh}</b><br>SSP: ${selectedStoreInfo.ssp}</span>`;
+  $('storePreview').classList.remove('hidden');
+  $('btnSubmit').disabled = false;
+});
+
+$('btnSubmit').addEventListener('click', async () => {
+  if (!selectedStoreInfo) return;
+  $('btnSubmit').disabled = true;
+  $('btnSubmit').textContent = 'กำลังบันทึก...';
+  $('storeMsg').innerHTML = '';
+
+  const payload = {
+    lineId: profile.userId,
+    storeId: selectedStoreInfo.storeId,
+    name: regStatus.isNew ? regStatus._draftName : undefined,
+    phone: regStatus.isNew ? regStatus._draftPhone : undefined,
+    staffType: regStatus.isNew ? regStatus._draftStaffType : undefined
+  };
+
+  try {
+    const result = await callApi('submitRegistration', { data: payload });
+    if (!result.success) {
+      $('storeMsg').innerHTML = `<div class="msg msg-error">${result.message}</div>`;
+      $('btnSubmit').disabled = false;
+      $('btnSubmit').textContent = 'ยืนยันลงทะเบียนสาขานี้';
+      return;
+    }
+    // อัปเดต state ในเครื่องหลังบันทึกสำเร็จ
+    if (regStatus.isNew) {
+      regStatus.isNew = false;
+      regStatus.name = regStatus._draftName;
+      regStatus.phone = regStatus._draftPhone;
+      regStatus.staffType = regStatus._draftStaffType;
+      regStatus.registeredStores = [];
+    }
+    regStatus.registeredStores.push(result.registeredStore);
+    regStatus.maxStore = result.maxStore;
+
+    renderSummary(result.registeredStore);
+  } catch (err) {
+    $('storeMsg').innerHTML = `<div class="msg msg-error">เกิดข้อผิดพลาด: ${err.message}</div>`;
+    $('btnSubmit').disabled = false;
+    $('btnSubmit').textContent = 'ยืนยันลงทะเบียนสาขานี้';
+  }
+});
+
+$('btnBackToList').addEventListener('click', () => renderSummary(null));
+
+/* ---------------- SUMMARY ---------------- */
+function renderSummary(justAdded) {
+  $('stepIndicator').classList.add('hidden');
+  $('summaryTitle').textContent = justAdded ? 'ลงทะเบียนสำเร็จ' : 'สาขาที่ลงทะเบียนไว้';
+  $('summarySub').textContent = justAdded
+    ? `เพิ่ม "${justAdded.storenameTh}" เรียบร้อยแล้ว`
+    : `คุณ ${regStatus.name} (${regStatus.staffType})`;
+
+  const max = currentMaxStore();
+  const count = currentStoreCount();
+
+  if (max !== null) {
+    $('quotaWrapSummary').classList.remove('hidden');
+    $('quotaTextSummary').textContent = `${count}/${max} สาขา`;
+    $('quotaFillBarSummary').style.width = Math.min(100, (count / max) * 100) + '%';
+  } else {
+    $('quotaWrapSummary').classList.add('hidden');
+  }
+
+  $('storeList').innerHTML = regStatus.registeredStores.map(s => `
+    <div class="store-item">
+      <div class="store-icon">${(s.customer || '?').charAt(0)}</div>
+      <div class="store-info">
+        <div class="store-name">${s.storenameTh}</div>
+        <div class="store-meta">${s.channel} · ${s.customer} · SSP: ${s.ssp}</div>
+      </div>
+      <div class="badge-ok">✓ แล้ว</div>
+    </div>
+  `).join('');
+
+  const quotaFull = max !== null && count >= max;
+  $('btnAddMore').classList.toggle('hidden', quotaFull);
+  if (quotaFull) {
+    $('storeList').innerHTML += `<p style="text-align:center; font-size:12.5px; color:var(--text-faint); margin-top:8px;">ลงทะเบียนครบโควตาของ Staff Type นี้แล้ว</p>`;
+  }
+
+  showView('viewSummary');
+}
+
+$('btnAddMore').addEventListener('click', renderStoreStep);
+
+init();
+</script>
+</body>
+</html>
