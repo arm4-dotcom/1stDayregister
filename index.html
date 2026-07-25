@@ -284,6 +284,7 @@ let regStatus = null;
 let staffOptions = [];
 let storeData = [];
 let selectedStoreInfo = null;
+let lastSelection = { channel: '', ssp: '', customer: '' };
 
 const $ = (id) => document.getElementById(id);
 
@@ -461,14 +462,52 @@ function renderStoreStep() {
   $('selChannel').disabled = false;
   $('selChannel').innerHTML = '<option value="">— เลือก Channel —</option>' +
     channels.map(c => `<option value="${c}">${c}</option>`).join('');
-  $('selSSP').innerHTML = '<option value="">— เลือก Channel ก่อน —</option>';
-  $('selSSP').disabled = true;
-  $('selCustomer').innerHTML = '<option value="">— เลือก SSP ก่อน —</option>';
-  $('selCustomer').disabled = true;
-  $('selStore').innerHTML = '<option value="">— เลือกลูกค้าก่อน —</option>';
-  $('selStore').disabled = true;
+
+  // ถ้าเคยเลือก Channel/SSP/ลูกค้าไว้แล้ว (มาจากการเพิ่มสาขาก่อนหน้า) ให้เลือกให้อัตโนมัติ
+  // ไม่ต้องวนกลับไปเลือกใหม่ทุกครั้ง เหลือแค่เลือกสาขาใหม่พอ
+  if (lastSelection.channel && channels.includes(lastSelection.channel)) {
+    $('selChannel').value = lastSelection.channel;
+    populateSSP_(lastSelection.channel);
+
+    if (lastSelection.ssp) {
+      $('selSSP').value = lastSelection.ssp;
+      populateCustomer_(lastSelection.channel, lastSelection.ssp);
+
+      if (lastSelection.customer) {
+        $('selCustomer').value = lastSelection.customer;
+        populateStore_(lastSelection.channel, lastSelection.ssp, lastSelection.customer);
+      }
+    }
+  } else {
+    $('selSSP').innerHTML = '<option value="">— เลือก Channel ก่อน —</option>';
+    $('selSSP').disabled = true;
+    $('selCustomer').innerHTML = '<option value="">— เลือก SSP ก่อน —</option>';
+    $('selCustomer').disabled = true;
+    $('selStore').innerHTML = '<option value="">— เลือกลูกค้าก่อน —</option>';
+    $('selStore').disabled = true;
+  }
 
   showView('viewStore');
+}
+
+// ---- ฟังก์ชันช่วยเติม dropdown แต่ละชั้น (ใช้ร่วมกันทั้งตอน pre-select และตอน user เลือกเอง) ----
+function populateSSP_(ch) {
+  const ssps = [...new Set(storeData.filter(s => s.channel === ch).map(s => s.ssp))];
+  $('selSSP').disabled = false;
+  $('selSSP').innerHTML = '<option value="">— เลือก SSP —</option>' +
+    ssps.map(s => `<option value="${s}">${s}</option>`).join('');
+}
+function populateCustomer_(ch, ssp) {
+  const customers = [...new Set(storeData.filter(s => s.channel === ch && s.ssp === ssp).map(s => s.customer))];
+  $('selCustomer').disabled = false;
+  $('selCustomer').innerHTML = '<option value="">— เลือกลูกค้า —</option>' +
+    customers.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+function populateStore_(ch, ssp, cust) {
+  const stores = storeData.filter(s => s.channel === ch && s.ssp === ssp && s.customer === cust);
+  $('selStore').disabled = false;
+  $('selStore').innerHTML = '<option value="">— เลือกสาขา —</option>' +
+    stores.map(s => `<option value="${s.storeId}">${s.storenameTh} (${s.storeId})</option>`).join('');
 }
 
 $('selChannel').addEventListener('change', () => {
@@ -479,12 +518,11 @@ $('selChannel').addEventListener('change', () => {
   $('selCustomer').disabled = true;
   $('selStore').innerHTML = '<option value="">— เลือกลูกค้าก่อน —</option>';
   $('selStore').disabled = true;
+  lastSelection.channel = ch;
+  lastSelection.ssp = '';
+  lastSelection.customer = '';
   if (!ch) { $('selSSP').disabled = true; return; }
-
-  const ssps = [...new Set(storeData.filter(s => s.channel === ch).map(s => s.ssp))];
-  $('selSSP').disabled = false;
-  $('selSSP').innerHTML = '<option value="">— เลือก SSP —</option>' +
-    ssps.map(s => `<option value="${s}">${s}</option>`).join('');
+  populateSSP_(ch);
 });
 
 $('selSSP').addEventListener('change', () => {
@@ -494,12 +532,10 @@ $('selSSP').addEventListener('change', () => {
   $('btnSubmit').classList.add('btn-dim');
   $('selStore').innerHTML = '<option value="">— เลือกลูกค้าก่อน —</option>';
   $('selStore').disabled = true;
+  lastSelection.ssp = ssp;
+  lastSelection.customer = '';
   if (!ssp) { $('selCustomer').disabled = true; return; }
-
-  const customers = [...new Set(storeData.filter(s => s.channel === ch && s.ssp === ssp).map(s => s.customer))];
-  $('selCustomer').disabled = false;
-  $('selCustomer').innerHTML = '<option value="">— เลือกลูกค้า —</option>' +
-    customers.map(c => `<option value="${c}">${c}</option>`).join('');
+  populateCustomer_(ch, ssp);
 });
 
 $('selCustomer').addEventListener('change', () => {
@@ -508,12 +544,9 @@ $('selCustomer').addEventListener('change', () => {
   const cust = $('selCustomer').value;
   $('storePreview').classList.add('hidden');
   $('btnSubmit').classList.add('btn-dim');
+  lastSelection.customer = cust;
   if (!cust) { $('selStore').disabled = true; return; }
-
-  const stores = storeData.filter(s => s.channel === ch && s.ssp === ssp && s.customer === cust);
-  $('selStore').disabled = false;
-  $('selStore').innerHTML = '<option value="">— เลือกสาขา —</option>' +
-    stores.map(s => `<option value="${s.storeId}">${s.storenameTh} (${s.storeId})</option>`).join('');
+  populateStore_(ch, ssp, cust);
 });
 
 $('selStore').addEventListener('change', () => {
