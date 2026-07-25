@@ -274,23 +274,26 @@
 /* ==========================================================
    ตั้งค่าก่อนใช้งานจริง
    ========================================================== */
-/* DEBUG ชั่วคราว: จับ error ที่มองไม่เห็น โชว์เป็นแถบแดงบนสุด (ลบออกทีหลังได้) */
-(function () {
+/* DEBUG ชั่วคราว: log ทีละขั้นตอน โชว์เป็นแถบแดงบนสุด (ลบออกทีหลังได้) */
+window.__debugLog = (function () {
   const banner = document.createElement('div');
   banner.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:9999; ' +
-    'background:#7f1d1d; color:#fecaca; font-size:12px; padding:10px 14px; ' +
-    'display:none; white-space:pre-wrap; word-break:break-all; max-height:40vh; overflow:auto;';
+    'background:#7f1d1d; color:#fecaca; font-size:11px; padding:10px 14px; ' +
+    'display:none; white-space:pre-wrap; word-break:break-all; max-height:45vh; overflow:auto;';
   document.body.prepend(banner);
-  function showDebug(msg) {
+  function log(msg) {
     banner.style.display = 'block';
-    banner.textContent += (banner.textContent ? '\n---\n' : '') + msg;
+    const time = new Date().toLocaleTimeString();
+    banner.textContent += '[' + time + '] ' + msg + '\n';
+    banner.scrollTop = banner.scrollHeight;
   }
   window.onerror = function (message, source, lineno) {
-    showDebug('JS Error: ' + message + ' (บรรทัด ' + lineno + ')');
+    log('JS Error: ' + message + ' (บรรทัด ' + lineno + ')');
   };
   window.addEventListener('unhandledrejection', function (e) {
-    showDebug('Unhandled Promise: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+    log('Unhandled Promise: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
   });
+  return log;
 })();
 
 const LIFF_ID = '2010842579-zhjBChGT';
@@ -315,12 +318,14 @@ function callApi(action, data) {
     }
   });
   const url = WEB_APP_URL + '?' + params.toString();
+  window.__debugLog && window.__debugLog('callApi(' + action + ') URL: ' + url);
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
     xhr.timeout = 20000; // 20 วินาที กันค้างตลอดไปถ้าเซิร์ฟเวอร์ไม่ตอบ
     xhr.onload = function () {
+      window.__debugLog && window.__debugLog('callApi(' + action + ') onload สถานะ: ' + xhr.status);
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           resolve(JSON.parse(xhr.responseText));
@@ -332,12 +337,15 @@ function callApi(action, data) {
       }
     };
     xhr.onerror = function () {
+      window.__debugLog && window.__debugLog('callApi(' + action + ') onerror ทำงาน (network error)');
       reject(new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (เช็คอินเทอร์เน็ต หรือ URL ของ Web App)'));
     };
     xhr.ontimeout = function () {
+      window.__debugLog && window.__debugLog('callApi(' + action + ') ontimeout ทำงาน (เกิน 20 วิ)');
       reject(new Error('เซิร์ฟเวอร์ตอบช้าเกินไป (เกิน 20 วินาที) กรุณาลองใหม่อีกครั้ง'));
     };
     xhr.send();
+    window.__debugLog && window.__debugLog('callApi(' + action + ') xhr.send() เรียกแล้ว readyState=' + xhr.readyState);
   });
 }
 
@@ -540,6 +548,8 @@ $('selStore').addEventListener('change', () => {
 });
 
 $('btnSubmit').addEventListener('click', async () => {
+  window.__debugLog && window.__debugLog('1. คลิกปุ่มยืนยันแล้ว');
+
   // ดึงค่าสาขาจาก dropdown ตรงๆ อีกรอบ กันเคส event 'change' ไม่ทันอัปเดต selectedStoreInfo
   const storeIdNow = $('selStore').value;
   if (storeIdNow) {
@@ -547,8 +557,10 @@ $('btnSubmit').addEventListener('click', async () => {
   }
   if (!selectedStoreInfo) {
     $('storeMsg').innerHTML = `<div class="msg msg-error">กรุณาเลือกสาขาให้ครบก่อนกดยืนยัน</div>`;
+    window.__debugLog && window.__debugLog('2. ไม่มี selectedStoreInfo หยุดที่นี่');
     return;
   }
+  window.__debugLog && window.__debugLog('2. selectedStoreInfo พร้อม: ' + selectedStoreInfo.storeId);
 
   $('btnSubmit').disabled = true;
   $('btnSubmit').textContent = 'กำลังบันทึก...';
@@ -561,9 +573,12 @@ $('btnSubmit').addEventListener('click', async () => {
     phone: regStatus.isNew ? regStatus._draftPhone : undefined,
     staffType: regStatus.isNew ? regStatus._draftStaffType : undefined
   };
+  window.__debugLog && window.__debugLog('3. สร้าง payload แล้ว: ' + JSON.stringify(payload));
 
   try {
+    window.__debugLog && window.__debugLog('4. กำลังเรียก callApi...');
     const result = await callApi('submitRegistration', payload);
+    window.__debugLog && window.__debugLog('5. callApi ตอบกลับแล้ว: ' + JSON.stringify(result));
     if (!result.success) {
       $('storeMsg').innerHTML = `<div class="msg msg-error">${result.message}</div>`;
       $('btnSubmit').disabled = false;
@@ -583,6 +598,7 @@ $('btnSubmit').addEventListener('click', async () => {
 
     renderSummary(result.registeredStore);
   } catch (err) {
+    window.__debugLog && window.__debugLog('X. เกิด error/exception: ' + err.message);
     $('storeMsg').innerHTML = `<div class="msg msg-error">เกิดข้อผิดพลาด: ${err.message}</div>`;
     $('btnSubmit').disabled = false;
     $('btnSubmit').textContent = 'ยืนยันลงทะเบียนสาขานี้';
