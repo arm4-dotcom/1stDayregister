@@ -179,7 +179,6 @@
   </div>
 
   <div class="card">
-
     <!-- LOADING -->
     <div id="viewLoading" class="center-state">
       <div class="spinner"></div>
@@ -271,10 +270,6 @@
 </div>
 
 <script>
-/* ==========================================================
-   ตั้งค่าก่อนใช้งานจริง
-   ========================================================== */
-/* DEBUG ชั่วคราว: จับ error ที่มองไม่เห็น โชว์เป็นแถบแดงบนสุด (ลบออกทีหลังได้) */
 (function () {
   const banner = document.createElement('div');
   banner.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:9999; ' +
@@ -296,8 +291,6 @@
 const LIFF_ID = '2010842579-zhjBChGT';
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyawgYZL1qczOOaO_AHILh0oeipt5uOPyZu8lFupbM0jOjd8LAi5Ep8vLOHALUUHvF-/exec';
 
-/* ========================================================== */
-
 let profile = null;
 let regStatus = null;
 let staffOptions = [];
@@ -306,39 +299,33 @@ let selectedStoreInfo = null;
 
 const $ = (id) => document.getElementById(id);
 
-function callApi(action, data) {
-  const params = new URLSearchParams();
-  params.set('action', action);
-  Object.keys(data || {}).forEach(key => {
-    if (data[key] !== undefined && data[key] !== null) {
-      params.set(key, data[key]);
+// --- ปรับปรุง callApi ด้วย fetch แบบ POST ---
+async function callApi(action, data) {
+  const payload = { action: action, ...data };
+  
+  try {
+    const response = await fetch(WEB_APP_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8' // ใช้ text/plain เลี่ยงปัญหา CORS บน GAS
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`เซิร์ฟเวอร์ตอบกลับผิดพลาด (สถานะ ${response.status})`);
     }
-  });
-  const url = WEB_APP_URL + '?' + params.toString();
-
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
-    xhr.timeout = 20000; // 20 วินาที กันค้างตลอดไปถ้าเซิร์ฟเวอร์ไม่ตอบ
-    xhr.onload = function () {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          resolve(JSON.parse(xhr.responseText));
-        } catch (e) {
-          reject(new Error('อ่านข้อมูลตอบกลับไม่ได้: ' + xhr.responseText.slice(0, 200)));
-        }
-      } else {
-        reject(new Error('เซิร์ฟเวอร์ตอบกลับผิดพลาด (สถานะ ' + xhr.status + ')'));
-      }
-    };
-    xhr.onerror = function () {
-      reject(new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (เช็คอินเทอร์เน็ต หรือ URL ของ Web App)'));
-    };
-    xhr.ontimeout = function () {
-      reject(new Error('เซิร์ฟเวอร์ตอบช้าเกินไป (เกิน 20 วินาที) กรุณาลองใหม่อีกครั้ง'));
-    };
-    xhr.send();
-  });
+    
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      console.error("Parse error, raw response:", text);
+      throw new Error('กรุณาอัปเดต การทำให้ใช้งานได้ (Deploy) ให้เป็นเวอร์ชันใหม่ใน Google Apps Script');
+    }
+  } catch (err) {
+    throw new Error(err.message || 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ต');
+  }
 }
 
 function showView(id) {
@@ -389,7 +376,6 @@ function showFatalError(msg) {
   $('errorText').textContent = msg;
 }
 
-/* ---------------- STEP 1: PROFILE (เฉพาะสมาชิกใหม่) ---------------- */
 function renderProfileForm() {
   const sel = $('inputStaffType');
   sel.innerHTML = '<option value="">— เลือก —</option>' +
@@ -421,7 +407,6 @@ $('btnToStore').addEventListener('click', () => {
   renderStoreStep();
 });
 
-/* ---------------- STEP 2: เลือกสาขา ---------------- */
 function currentStaffType() {
   return regStatus.isNew ? regStatus._draftStaffType : regStatus.staffType;
 }
@@ -454,7 +439,6 @@ function renderStoreStep() {
     $('quotaWrap').classList.add('hidden');
   }
 
-  // จำกัดโควตาเต็มแล้ว
   if (max !== null && count >= max) {
     $('storeMsg').innerHTML = `<div class="msg msg-error">Staff Type "${currentStaffType()}" ลงทะเบียนได้สูงสุด ${max} สาขา คุณลงทะเบียนครบแล้ว</div>`;
     $('selChannel').disabled = true;
@@ -468,7 +452,6 @@ function renderStoreStep() {
 
   $('btnBackToList').classList.toggle('hidden', count === 0);
 
-  // เติม Channel dropdown
   const channels = [...new Set(storeData.map(s => s.channel))];
   $('selChannel').disabled = false;
   $('selChannel').innerHTML = '<option value="">— เลือก Channel —</option>' +
@@ -540,7 +523,6 @@ $('selStore').addEventListener('change', () => {
 });
 
 $('btnSubmit').addEventListener('click', async () => {
-  // ดึงค่าสาขาจาก dropdown ตรงๆ อีกรอบ กันเคส event 'change' ไม่ทันอัปเดต selectedStoreInfo
   const storeIdNow = $('selStore').value;
   if (storeIdNow) {
     selectedStoreInfo = storeData.find(s => String(s.storeId) === String(storeIdNow)) || selectedStoreInfo;
@@ -570,7 +552,7 @@ $('btnSubmit').addEventListener('click', async () => {
       $('btnSubmit').textContent = 'ยืนยันลงทะเบียนสาขานี้';
       return;
     }
-    // อัปเดต state ในเครื่องหลังบันทึกสำเร็จ
+    
     if (regStatus.isNew) {
       regStatus.isNew = false;
       regStatus.name = regStatus._draftName;
@@ -591,7 +573,6 @@ $('btnSubmit').addEventListener('click', async () => {
 
 $('btnBackToList').addEventListener('click', () => renderSummary(null));
 
-/* ---------------- SUMMARY ---------------- */
 function renderSummary(justAdded) {
   $('stepIndicator').classList.add('hidden');
   $('summaryTitle').textContent = justAdded ? 'ลงทะเบียนสำเร็จ' : 'สาขาที่ลงทะเบียนไว้';
