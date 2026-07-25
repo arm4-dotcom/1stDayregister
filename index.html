@@ -524,7 +524,7 @@ $('selStore').addEventListener('change', () => {
   const storeId = $('selStore').value;
   if (!storeId) { $('storePreview').classList.add('hidden'); $('btnSubmit').classList.add('btn-dim'); return; }
 
-  selectedStoreInfo = storeData.find(s => s.storeId === storeId);
+  selectedStoreInfo = storeData.find(s => String(s.storeId) === String(storeId));
   $('storePreview').innerHTML =
     `📍 <span><b>${selectedStoreInfo.storenameTh}</b><br>SSP: ${selectedStoreInfo.ssp}</span>`;
   $('storePreview').classList.remove('hidden');
@@ -535,7 +535,7 @@ $('btnSubmit').addEventListener('click', async () => {
   // ดึงค่าสาขาจาก dropdown ตรงๆ อีกรอบ กันเคส event 'change' ไม่ทันอัปเดต selectedStoreInfo
   const storeIdNow = $('selStore').value;
   if (storeIdNow) {
-    selectedStoreInfo = storeData.find(s => s.storeId === storeIdNow) || selectedStoreInfo;
+    selectedStoreInfo = storeData.find(s => String(s.storeId) === String(storeIdNow)) || selectedStoreInfo;
   }
   if (!selectedStoreInfo) {
     $('storeMsg').innerHTML = `<div class="msg msg-error">กรุณาเลือกสาขาให้ครบก่อนกดยืนยัน</div>`;
