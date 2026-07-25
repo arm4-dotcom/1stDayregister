@@ -102,6 +102,7 @@
     color:#04070f;
   }
   .btn-primary:disabled{opacity:.35; cursor:not-allowed;}
+  .btn-primary.btn-dim{opacity:.35;}
   .btn-ghost{
     background:transparent; border:1px solid var(--border); color:var(--text);
   }
@@ -416,7 +417,7 @@ function renderStoreStep() {
   $('storeMsg').innerHTML = '';
   $('storePreview').classList.add('hidden');
   selectedStoreInfo = null;
-  $('btnSubmit').disabled = true;
+  $('btnSubmit').classList.add('btn-dim');
 
   const max = currentMaxStore();
   const count = currentStoreCount();
@@ -458,7 +459,7 @@ function renderStoreStep() {
 $('selChannel').addEventListener('change', () => {
   const ch = $('selChannel').value;
   $('storePreview').classList.add('hidden');
-  $('btnSubmit').disabled = true;
+  $('btnSubmit').classList.add('btn-dim');
   if (!ch) { $('selCustomer').disabled = true; return; }
 
   const customers = [...new Set(storeData.filter(s => s.channel === ch).map(s => s.customer))];
@@ -473,7 +474,7 @@ $('selCustomer').addEventListener('change', () => {
   const ch = $('selChannel').value;
   const cust = $('selCustomer').value;
   $('storePreview').classList.add('hidden');
-  $('btnSubmit').disabled = true;
+  $('btnSubmit').classList.add('btn-dim');
   if (!cust) { $('selStore').disabled = true; return; }
 
   const stores = storeData.filter(s => s.channel === ch && s.customer === cust);
@@ -484,17 +485,26 @@ $('selCustomer').addEventListener('change', () => {
 
 $('selStore').addEventListener('change', () => {
   const storeId = $('selStore').value;
-  if (!storeId) { $('storePreview').classList.add('hidden'); $('btnSubmit').disabled = true; return; }
+  if (!storeId) { $('storePreview').classList.add('hidden'); $('btnSubmit').classList.add('btn-dim'); return; }
 
   selectedStoreInfo = storeData.find(s => s.storeId === storeId);
   $('storePreview').innerHTML =
     `📍 <span><b>${selectedStoreInfo.storenameTh}</b><br>SSP: ${selectedStoreInfo.ssp}</span>`;
   $('storePreview').classList.remove('hidden');
-  $('btnSubmit').disabled = false;
+  $('btnSubmit').classList.remove('btn-dim');
 });
 
 $('btnSubmit').addEventListener('click', async () => {
-  if (!selectedStoreInfo) return;
+  // ดึงค่าสาขาจาก dropdown ตรงๆ อีกรอบ กันเคส event 'change' ไม่ทันอัปเดต selectedStoreInfo
+  const storeIdNow = $('selStore').value;
+  if (storeIdNow) {
+    selectedStoreInfo = storeData.find(s => s.storeId === storeIdNow) || selectedStoreInfo;
+  }
+  if (!selectedStoreInfo) {
+    $('storeMsg').innerHTML = `<div class="msg msg-error">กรุณาเลือกสาขาให้ครบก่อนกดยืนยัน</div>`;
+    return;
+  }
+
   $('btnSubmit').disabled = true;
   $('btnSubmit').textContent = 'กำลังบันทึก...';
   $('storeMsg').innerHTML = '';
