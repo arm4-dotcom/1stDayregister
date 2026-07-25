@@ -274,28 +274,6 @@
 /* ==========================================================
    ตั้งค่าก่อนใช้งานจริง
    ========================================================== */
-/* DEBUG ชั่วคราว: log ทีละขั้นตอน โชว์เป็นแถบแดงบนสุด (ลบออกทีหลังได้) */
-window.__debugLog = (function () {
-  const banner = document.createElement('div');
-  banner.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:9999; ' +
-    'background:#7f1d1d; color:#fecaca; font-size:11px; padding:10px 14px; ' +
-    'display:none; white-space:pre-wrap; word-break:break-all; max-height:45vh; overflow:auto;';
-  document.body.prepend(banner);
-  function log(msg) {
-    banner.style.display = 'block';
-    const time = new Date().toLocaleTimeString();
-    banner.textContent += '[' + time + '] ' + msg + '\n';
-    banner.scrollTop = banner.scrollHeight;
-  }
-  window.onerror = function (message, source, lineno) {
-    log('JS Error: ' + message + ' (บรรทัด ' + lineno + ')');
-  };
-  window.addEventListener('unhandledrejection', function (e) {
-    log('Unhandled Promise: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
-  });
-  return log;
-})();
-
 const LIFF_ID = '2010842579-zhjBChGT';
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyawgYZL1qczOOaO_AHILh0oeipt5uOPyZu8lFupbM0jOjd8LAi5Ep8vLOHALUUHvF-/exec';
 
@@ -450,6 +428,8 @@ function renderStoreStep() {
   $('storePreview').classList.add('hidden');
   selectedStoreInfo = null;
   $('btnSubmit').classList.add('btn-dim');
+  $('btnSubmit').disabled = false;
+  $('btnSubmit').textContent = 'ยืนยันลงทะเบียนสาขานี้';
 
   const max = currentMaxStore();
   const count = currentStoreCount();
