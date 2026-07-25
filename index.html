@@ -283,11 +283,28 @@ let selectedStoreInfo = null;
 const $ = (id) => document.getElementById(id);
 
 function callApi(action, data) {
-  return fetch(WEB_APP_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // กัน CORS preflight ของ Apps Script
-    body: JSON.stringify({ action, ...data })
-  }).then(r => r.json());
+  // ใช้ XMLHttpRequest แทน fetch() เพราะเสถียรกว่าเวลาเจอ redirect ของ Apps Script
+  // ในเว็บวิวของแอปอื่น (เช่น LINE in-app browser) ซึ่ง fetch() มักขึ้น "Failed to fetch"
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', WEB_APP_URL, true);
+    xhr.setRequestHeader('Content-Type', 'text/plain;charset=utf-8');
+    xhr.onload = function () {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText));
+        } catch (e) {
+          reject(new Error('อ่านข้อมูลตอบกลับไม่ได้: ' + xhr.responseText.slice(0, 200)));
+        }
+      } else {
+        reject(new Error('เซิร์ฟเวอร์ตอบกลับผิดพลาด (สถานะ ' + xhr.status + ')'));
+      }
+    };
+    xhr.onerror = function () {
+      reject(new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (เช็คอินเทอร์เน็ต หรือ URL ของ Web App)'));
+    };
+    xhr.send(JSON.stringify({ action, ...data }));
+  });
 }
 
 function showView(id) {
