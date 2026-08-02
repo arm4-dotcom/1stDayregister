@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>ลงทะเบียน MER/Staff</title>
+<title>ลงทะเบียน Sup/Staff</title>
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -134,6 +134,15 @@
     font-size:11px; font-weight:700; color:#04070f;
     background:var(--success); padding:3px 8px; border-radius:20px; flex-shrink:0;
   }
+  /* เพิ่มใหม่: ปุ่มลบสาขาที่ลงทะเบียนผิด (ในหน้าสรุป) */
+  .store-actions{display:flex; align-items:center; gap:8px; flex-shrink:0;}
+  .btn-remove-store{
+    flex-shrink:0; background:transparent; border:1px solid rgba(248,113,113,.35); color:var(--danger);
+    padding:6px 12px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;
+    font-family:inherit;
+  }
+  .btn-remove-store:disabled{opacity:.5; cursor:not-allowed;}
+  .btn-remove-store:active{transform:scale(.96);}
 
   .quota-bar{
     display:flex; justify-content:space-between; align-items:center;
@@ -259,6 +268,7 @@
         </div>
       </div>
 
+      <p class="sub" style="margin-bottom:10px;">เลือกสาขาผิด? กด "ลบ" แล้วเพิ่มสาขาที่ถูกต้องใหม่ได้เลย</p>
       <div id="storeList"></div>
 
       <button class="btn btn-primary" id="btnAddMore">+ เพิ่มสาขา</button>
@@ -280,7 +290,7 @@
 const LIFF_ID = '2010842579-zhjBChGT';
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyawgYZL1qczOOaO_AHILh0oeipt5uOPyZu8lFupbM0jOjd8LAi5Ep8vLOHALUUHvF-/exec';
 
-// ★ ตั้งค่าการลองซ้ำอัตโนมัติ กันเคส Apps Script ตอบช้า/เน็ตสะดุดชั่วครู่ (โดยเฉพาะตอนยิง
+// ตั้งค่าการลองซ้ำอัตโนมัติ กันเคส Apps Script ตอบช้า/เน็ตสะดุดชั่วครู่ (โดยเฉพาะตอนยิง
 // request ถี่ๆ ติดกันระหว่างทดสอบ) - ไม่ทำให้ข้อมูลซ้ำเพราะ submitRegistration มีเช็ค duplicate
 // (LineID+StoreID) อยู่แล้วฝั่ง backend
 const API_TIMEOUT_MS = 25000;
@@ -338,7 +348,7 @@ function callApi(action, data) {
   });
 }
 
-// ★ เพิ่มใหม่: เรียก callApi ซ้ำอัตโนมัติถ้าล้มเหลว (เช่น 404/timeout ชั่วคราว) ก่อนที่จะโยน error
+// เรียก callApi ซ้ำอัตโนมัติถ้าล้มเหลว (เช่น 404/timeout ชั่วคราว) ก่อนที่จะโยน error
 // จริงๆ ให้ผู้ใช้เห็น ช่วยกันหน้าจอค้าง/ล้มเหลวจากอาการเน็ตสะดุดชั่วครู่ระหว่างทดสอบ/ใช้งานจริง
 function callApiWithRetry(action, data, retriesLeft) {
   if (retriesLeft === undefined) retriesLeft = API_RETRY_COUNT;
@@ -615,7 +625,7 @@ $('btnSubmit').addEventListener('click', async () => {
 
   try {
     window.__debugLog && window.__debugLog('4. กำลังเรียก callApi (พร้อม retry)...');
-    // ★ ใช้ callApiWithRetry แทน callApi ตรงๆ - ถ้า response หลุด/404/timeout ชั่วคราว
+    // ใช้ callApiWithRetry แทน callApi ตรงๆ - ถ้า response หลุด/404/timeout ชั่วคราว
     // ระบบจะลองซ้ำให้อัตโนมัติ 1 ครั้งก่อนขึ้น error ให้ผู้ใช้เห็น (ปลอดภัยเพราะ backend
     // เช็ค duplicate LineID+StoreID อยู่แล้ว ไม่มีทางเกิดแถวซ้ำ)
     const result = await callApiWithRetry('submitRegistration', payload);
@@ -667,14 +677,19 @@ function renderSummary(justAdded) {
     $('quotaWrapSummary').classList.add('hidden');
   }
 
-  $('storeList').innerHTML = regStatus.registeredStores.map(s => `
+  // เพิ่มปุ่ม "ลบ" ต่อสาขา (data-idx อ้างตำแหน่งใน regStatus.registeredStores) ให้ผู้ใช้
+  // ลบสาขาที่เลือกผิดออกเองได้ แล้วค่อยกด "+ เพิ่มสาขา" เลือกใหม่ให้ถูกต้อง
+  $('storeList').innerHTML = regStatus.registeredStores.map((s, idx) => `
     <div class="store-item">
       <div class="store-icon">${(s.customer || '?').charAt(0)}</div>
       <div class="store-info">
         <div class="store-name">${s.storenameTh}</div>
         <div class="store-meta">${s.channel} · ${s.customer} · SSP: ${s.ssp}</div>
       </div>
-      <div class="badge-ok">✓ แล้ว</div>
+      <div class="store-actions">
+        <span class="badge-ok">✓ แล้ว</span>
+        <button class="btn-remove-store" data-idx="${idx}" onclick="removeStore(${idx})">ลบ</button>
+      </div>
     </div>
   `).join('');
 
@@ -685,6 +700,35 @@ function renderSummary(justAdded) {
   }
 
   showView('viewSummary');
+}
+
+// เพิ่มใหม่: ลบสาขาที่เลือกผิดออกจากรายการที่ลงทะเบียนไว้
+async function removeStore(idx) {
+  const store = regStatus.registeredStores[idx];
+  if (!store) return;
+  if (!confirm(`ต้องการลบ "${store.storenameTh}" ออกจากรายการที่ลงทะเบียนไว้ใช่หรือไม่?`)) return;
+
+  const btn = document.querySelector(`.btn-remove-store[data-idx="${idx}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+
+  try {
+    const result = await callApiWithRetry('deleteRegisteredStore', { lineId: profile.userId, storeId: store.storeId });
+    if (!result.success) {
+      alert(result.message || 'ลบไม่สำเร็จ กรุณาลองใหม่');
+      if (btn) { btn.disabled = false; btn.textContent = 'ลบ'; }
+      return;
+    }
+    regStatus.registeredStores.splice(idx, 1);
+    // ถ้าลบจนไม่เหลือสาขาเลย พาไปหน้าเลือกสาขาต่อทันที ไม่ต้องค้างที่หน้าสรุปว่างๆ
+    if (regStatus.registeredStores.length === 0) {
+      renderStoreStep();
+    } else {
+      renderSummary(null);
+    }
+  } catch (err) {
+    alert('เกิดข้อผิดพลาด: ' + err.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'ลบ'; }
+  }
 }
 
 $('btnAddMore').addEventListener('click', renderStoreStep);
