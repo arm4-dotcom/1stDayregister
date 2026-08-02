@@ -152,6 +152,8 @@
   }
   @keyframes spin{to{transform:rotate(360deg);}}
   .center-state p{color:var(--text-dim); font-size:13.5px;}
+  .retry-btn{margin-top:14px; background:var(--accent); color:#fff; border:none; border-radius:10px;
+    padding:10px 22px; font-size:14px; font-weight:600; cursor:pointer;}
 
   .success-icon{
     width:56px; height:56px; margin:0 auto 16px; border-radius:50%;
@@ -265,6 +267,7 @@
     <!-- ERROR -->
     <div id="viewError" class="center-state hidden">
       <p style="color:var(--danger); font-size:14px;" id="errorText">เกิดข้อผิดพลาด</p>
+      <button class="retry-btn" onclick="init()">ลองใหม่อีกครั้ง</button>
     </div>
 
   </div>
@@ -276,6 +279,13 @@
    ========================================================== */
 const LIFF_ID = '2010842579-zhjBChGT';
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyawgYZL1qczOOaO_AHILh0oeipt5uOPyZu8lFupbM0jOjd8LAi5Ep8vLOHALUUHvF-/exec';
+
+// ★ ตั้งค่าการลองซ้ำอัตโนมัติ กันเคส Apps Script ตอบช้า/เน็ตสะดุดชั่วครู่ (โดยเฉพาะตอนยิง
+// request ถี่ๆ ติดกันระหว่างทดสอบ) - ไม่ทำให้ข้อมูลซ้ำเพราะ submitRegistration มีเช็ค duplicate
+// (LineID+StoreID) อยู่แล้วฝั่ง backend
+const API_TIMEOUT_MS = 25000;
+const API_RETRY_COUNT = 1;
+const API_RETRY_DELAY_MS = 1200;
 
 /* ========================================================== */
 
@@ -302,7 +312,7 @@ function callApi(action, data) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
-    xhr.timeout = 20000; // 20 วินาที กันค้างตลอดไปถ้าเซิร์ฟเวอร์ไม่ตอบ
+    xhr.timeout = API_TIMEOUT_MS;
     xhr.onload = function () {
       window.__debugLog && window.__debugLog('callApi(' + action + ') onload สถานะ: ' + xhr.status);
       if (xhr.status >= 200 && xhr.status < 300) {
@@ -320,11 +330,23 @@ function callApi(action, data) {
       reject(new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (เช็คอินเทอร์เน็ต หรือ URL ของ Web App)'));
     };
     xhr.ontimeout = function () {
-      window.__debugLog && window.__debugLog('callApi(' + action + ') ontimeout ทำงาน (เกิน 20 วิ)');
-      reject(new Error('เซิร์ฟเวอร์ตอบช้าเกินไป (เกิน 20 วินาที) กรุณาลองใหม่อีกครั้ง'));
+      window.__debugLog && window.__debugLog('callApi(' + action + ') ontimeout ทำงาน (เกิน ' + API_TIMEOUT_MS + 'ms)');
+      reject(new Error('เซิร์ฟเวอร์ตอบช้าเกินไป กรุณาลองใหม่อีกครั้ง'));
     };
     xhr.send();
     window.__debugLog && window.__debugLog('callApi(' + action + ') xhr.send() เรียกแล้ว readyState=' + xhr.readyState);
+  });
+}
+
+// ★ เพิ่มใหม่: เรียก callApi ซ้ำอัตโนมัติถ้าล้มเหลว (เช่น 404/timeout ชั่วคราว) ก่อนที่จะโยน error
+// จริงๆ ให้ผู้ใช้เห็น ช่วยกันหน้าจอค้าง/ล้มเหลวจากอาการเน็ตสะดุดชั่วครู่ระหว่างทดสอบ/ใช้งานจริง
+function callApiWithRetry(action, data, retriesLeft) {
+  if (retriesLeft === undefined) retriesLeft = API_RETRY_COUNT;
+  return callApi(action, data).catch(function (err) {
+    if (retriesLeft <= 0) throw err;
+    window.__debugLog && window.__debugLog('retry ' + action + ' (เหลือ ' + retriesLeft + ' ครั้ง) หลัง error: ' + err.message);
+    return new Promise(function (resolve) { setTimeout(resolve, API_RETRY_DELAY_MS); })
+      .then(function () { return callApiWithRetry(action, data, retriesLeft - 1); });
   });
 }
 
@@ -345,6 +367,9 @@ function setStepIndicator(step, label) {
 
 async function init() {
   try {
+    showView('viewLoading');
+    $('loadingText').textContent = 'กำลังเชื่อมต่อ LINE...';
+
     await liff.init({ liffId: LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login(); return; }
 
@@ -352,9 +377,9 @@ async function init() {
     profile = await liff.getProfile();
 
     const [status, staff, stores] = await Promise.all([
-      callApi('getRegisterStatus', { lineId: profile.userId }),
-      callApi('getStaffTypeOptions', {}),
-      callApi('getStoreMasterData', {})
+      callApiWithRetry('getRegisterStatus', { lineId: profile.userId }),
+      callApiWithRetry('getStaffTypeOptions', {}),
+      callApiWithRetry('getStoreMasterData', {})
     ]);
 
     regStatus = status;
@@ -589,8 +614,11 @@ $('btnSubmit').addEventListener('click', async () => {
   window.__debugLog && window.__debugLog('3. สร้าง payload แล้ว: ' + JSON.stringify(payload));
 
   try {
-    window.__debugLog && window.__debugLog('4. กำลังเรียก callApi...');
-    const result = await callApi('submitRegistration', payload);
+    window.__debugLog && window.__debugLog('4. กำลังเรียก callApi (พร้อม retry)...');
+    // ★ ใช้ callApiWithRetry แทน callApi ตรงๆ - ถ้า response หลุด/404/timeout ชั่วคราว
+    // ระบบจะลองซ้ำให้อัตโนมัติ 1 ครั้งก่อนขึ้น error ให้ผู้ใช้เห็น (ปลอดภัยเพราะ backend
+    // เช็ค duplicate LineID+StoreID อยู่แล้ว ไม่มีทางเกิดแถวซ้ำ)
+    const result = await callApiWithRetry('submitRegistration', payload);
     window.__debugLog && window.__debugLog('5. callApi ตอบกลับแล้ว: ' + JSON.stringify(result));
     if (!result.success) {
       $('storeMsg').innerHTML = `<div class="msg msg-error">${result.message}</div>`;
